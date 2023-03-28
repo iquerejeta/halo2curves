@@ -2,17 +2,16 @@
 
 use core::fmt;
 use core::ops::{Add, Mul, Neg, Sub};
-use std::convert::TryInto;
-use std::ops::{BitAnd, Deref};
 use ff::{Field, PrimeField, WithSmallOrderMulGroup};
 use rand_core::RngCore;
+use std::convert::TryInto;
+use std::ops::{BitAnd, Deref};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::bls12_381::fp::Fp;
 use crate::{
-    impl_add_binop_specify_output, impl_binops_additive,
-    impl_binops_additive_specify_output, impl_binops_multiplicative,
-    impl_binops_multiplicative_mixed, impl_sub_binop_specify_output,
+    impl_add_binop_specify_output, impl_binops_additive, impl_binops_additive_specify_output,
+    impl_binops_multiplicative, impl_binops_multiplicative_mixed, impl_sub_binop_specify_output,
 };
 
 #[derive(Copy, Clone)]
@@ -76,25 +75,27 @@ impl AsMut<[u8]> for Fp2Repr {
     }
 }
 
-use crate::{
-    impl_sum_prod,
-};
+use crate::impl_sum_prod;
 impl_sum_prod!(Fp2);
 
 /// 2^-1
-const TWO_INV: Fp2 = Fp2{ c0: Fp([
-    0x1804_0000_0001_5554,
-    0x8550_0005_3ab0_0001,
-    0x633c_b57c_253c_276f,
-    0x6e22_d1ec_31eb_b502,
-    0xd391_6126_f2d1_4ca2,
-    0x17fb_b857_1a00_6596,
-]),
-    c1: Fp([0, 0, 0, 0, 0, 0])
+const TWO_INV: Fp2 = Fp2 {
+    c0: Fp([
+        0x1804_0000_0001_5554,
+        0x8550_0005_3ab0_0001,
+        0x633c_b57c_253c_276f,
+        0x6e22_d1ec_31eb_b502,
+        0xd391_6126_f2d1_4ca2,
+        0x17fb_b857_1a00_6596,
+    ]),
+    c1: Fp([0, 0, 0, 0, 0, 0]),
 };
 
 /// Computed using sage, GF(0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab).primitive_element()
-const MULTIPLICATIVE_GENERATOR: Fp2 = Fp2 { c0: Fp([0x02, 0x00, 0x00, 0x00, 0x00, 0x00]), c1: Fp([0, 0, 0, 0, 0, 0]) };
+const MULTIPLICATIVE_GENERATOR: Fp2 = Fp2 {
+    c0: Fp([0x02, 0x00, 0x00, 0x00, 0x00, 0x00]),
+    c1: Fp([0, 0, 0, 0, 0, 0]),
+};
 
 // TODO: Can we simply put 0 here::
 const ROOT_OF_UNITY: Fp2 = Fp2::zero();
@@ -107,21 +108,24 @@ const DELTA: Fp2 = Fp2::zero();
 
 impl From<u64> for Fp2 {
     fn from(val: u64) -> Fp2 {
-        Fp2{ c0: Fp([val, 0, 0, 0, 0, 0]), c1: Fp([0, 0, 0, 0, 0, 0]) }
+        Fp2 {
+            c0: Fp([val, 0, 0, 0, 0, 0]),
+            c1: Fp([0, 0, 0, 0, 0, 0]),
+        }
     }
 }
 
 // Fp::ZETA^2
 const ZETA: Fp2 = Fp2 {
     c0: Fp([
-           0xcd03c9e48671f071,
-           0x5dab22461fcda5d2,
-           0x587042afd3851b95,
-           0x8eb60ebe01bacb9e,
-           0x3f97d6e83d050d2,
-           0x18f0206554638741,
+        0xcd03c9e48671f071,
+        0x5dab22461fcda5d2,
+        0x587042afd3851b95,
+        0x8eb60ebe01bacb9e,
+        0x3f97d6e83d050d2,
+        0x18f0206554638741,
     ]),
-    c1: Fp([0, 0, 0, 0, 0, 0])
+    c1: Fp([0, 0, 0, 0, 0, 0]),
 };
 
 impl Field for Fp2 {

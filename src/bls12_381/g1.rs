@@ -20,9 +20,8 @@ use pasta_curves::arithmetic::{Coordinates, CurveAffine, CurveExt};
 use crate::bls12_381::fp::Fp;
 use crate::bls12_381::Scalar;
 use crate::{
-    impl_add_binop_specify_output, impl_binops_additive,
-    impl_binops_additive_specify_output, impl_binops_multiplicative,
-    impl_binops_multiplicative_mixed, impl_sub_binop_specify_output,
+    impl_add_binop_specify_output, impl_binops_additive, impl_binops_additive_specify_output,
+    impl_binops_multiplicative, impl_binops_multiplicative_mixed, impl_sub_binop_specify_output,
 };
 /// This is an element of $\mathbb{G}_1$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
@@ -620,17 +619,17 @@ impl CurveAffine for G1Affine {
 
     fn is_on_curve(&self) -> Choice {
         // y^2 - x^3 ?= b
-        (self.y.square() - self.x.square() * self.x).ct_eq(&B)
-            | self.is_identity()
+        (self.y.square() - self.x.square() * self.x).ct_eq(&B) | self.is_identity()
     }
 
     fn coordinates(&self) -> CtOption<Coordinates<Self>> {
-        Coordinates::from_xy( self.x, self.y )
+        Coordinates::from_xy(self.x, self.y)
     }
 
     fn from_xy(x: Self::Base, y: Self::Base) -> CtOption<Self> {
         let p = G1Affine {
-            x, y,
+            x,
+            y,
             infinity: Choice::from(0),
         };
         CtOption::new(p, p.is_on_curve())
@@ -646,7 +645,6 @@ impl CurveAffine for G1Affine {
 }
 
 impl CurveExt for G1Projective {
-
     type ScalarExt = Scalar;
     type Base = Fp;
     type AffineExt = G1Affine;
@@ -668,7 +666,6 @@ impl CurveExt for G1Projective {
         (x, y, self.z)
     }
 
-
     fn hash_to_curve<'a>(_: &'a str) -> Box<dyn Fn(&[u8]) -> Self + 'a> {
         unimplemented!(); // todo: it is implemented :tada:
     }
@@ -677,9 +674,8 @@ impl CurveExt for G1Projective {
         // Check (Y/Z)^2 = (X/Z)^3 + b
         // <=>    Z Y^2 -  X^3 = Z^3 b
 
-        (self.z * self.y.square()  - self.x.square() * self.x)
-            .ct_eq(&(self.z.square() * self.z * B))
-        | self.z.is_zero()
+        (self.z * self.y.square() - self.x.square() * self.x).ct_eq(&(self.z.square() * self.z * B))
+            | self.z.is_zero()
     }
 
     fn b() -> Self::Base {
@@ -696,9 +692,9 @@ impl CurveExt for G1Projective {
         let p_x = x * z_inv;
         let p_y = y * z_inv.square();
         let p = G1Projective {
-            x:p_x,
-            y:Fp::conditional_select(&p_y, &Fp::one(), z.is_zero()),
-            z
+            x: p_x,
+            y: Fp::conditional_select(&p_y, &Fp::one(), z.is_zero()),
+            z,
         };
         CtOption::new(p, p.is_on_curve())
     }

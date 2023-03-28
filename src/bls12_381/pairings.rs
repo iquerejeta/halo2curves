@@ -4,25 +4,23 @@ use crate::bls12_381::fp2::Fp2;
 use crate::bls12_381::fp6::Fp6;
 use crate::bls12_381::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
 
+use crate::pairing::{Engine, PairingCurveAffine};
 use core::borrow::Borrow;
 use core::fmt;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, Neg, Sub};
 use group::Group;
-use crate::pairing::{Engine, PairingCurveAffine};
 use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
-use crate::{
-    impl_add_binop_specify_output, impl_binops_additive,
-    impl_binops_additive_specify_output, impl_binops_multiplicative,
-    impl_binops_multiplicative_mixed, impl_sub_binop_specify_output,
-};
 use crate::pairing::MultiMillerLoop;
+use crate::{
+    impl_add_binop_specify_output, impl_binops_additive, impl_binops_additive_specify_output,
+    impl_binops_multiplicative, impl_binops_multiplicative_mixed, impl_sub_binop_specify_output,
+};
 
 pub(crate) const BLS_X: u64 = 0xd201_0000_0001_0000;
 pub(crate) const BLS_X_IS_NEGATIVE: bool = true;
-
 
 /// Represents results of a Miller loop, one of the most expensive portions
 /// of the pairing function. `MillerLoopResult`s cannot be compared with each

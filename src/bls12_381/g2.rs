@@ -19,11 +19,10 @@ use ff::WithSmallOrderMulGroup;
 
 use crate::bls12_381::fp::Fp;
 use crate::bls12_381::fp2::Fp2;
-use crate::bls12_381::{Scalar};
+use crate::bls12_381::Scalar;
 use crate::{
-    impl_add_binop_specify_output, impl_binops_additive,
-    impl_binops_additive_specify_output, impl_binops_multiplicative,
-    impl_binops_multiplicative_mixed, impl_sub_binop_specify_output,
+    impl_add_binop_specify_output, impl_binops_additive, impl_binops_additive_specify_output,
+    impl_binops_multiplicative, impl_binops_multiplicative_mixed, impl_sub_binop_specify_output,
 };
 /// This is an element of $\mathbb{G}_2$ represented in the affine coordinate space.
 /// It is ideal to keep elements in this representation to reduce memory usage and
@@ -673,17 +672,17 @@ impl CurveAffine for G2Affine {
 
     fn is_on_curve(&self) -> Choice {
         // y^2 - x^3 ?= b
-        (self.y.square() - self.x.square() * self.x).ct_eq(&B)
-            | self.is_identity()
+        (self.y.square() - self.x.square() * self.x).ct_eq(&B) | self.is_identity()
     }
 
     fn coordinates(&self) -> CtOption<Coordinates<Self>> {
-        Coordinates::from_xy( self.x, self.y )
+        Coordinates::from_xy(self.x, self.y)
     }
 
     fn from_xy(x: Self::Base, y: Self::Base) -> CtOption<Self> {
         let p = G2Affine {
-            x, y,
+            x,
+            y,
             infinity: Choice::from(0),
         };
         CtOption::new(p, p.is_on_curve())
@@ -699,7 +698,6 @@ impl CurveAffine for G2Affine {
 }
 
 impl CurveExt for G2Projective {
-
     type ScalarExt = Scalar;
     type Base = Fp2;
     type AffineExt = G2Affine;
@@ -721,7 +719,6 @@ impl CurveExt for G2Projective {
         (x, y, self.z)
     }
 
-
     fn hash_to_curve<'a>(_: &'a str) -> Box<dyn Fn(&[u8]) -> Self + 'a> {
         unimplemented!(); // todo: it is implemented :tada:
     }
@@ -730,8 +727,7 @@ impl CurveExt for G2Projective {
         // Check (Y/Z)^2 = (X/Z)^3 + b
         // <=>    Z Y^2 -  X^3 = Z^3 b
 
-        (self.z * self.y.square()  - self.x.square() * self.x)
-            .ct_eq(&(self.z.square() * self.z * B))
+        (self.z * self.y.square() - self.x.square() * self.x).ct_eq(&(self.z.square() * self.z * B))
             | self.z.is_zero()
     }
 
@@ -749,9 +745,9 @@ impl CurveExt for G2Projective {
         let p_x = x * z_inv;
         let p_y = y * z_inv.square();
         let p = G2Projective {
-            x:p_x,
-            y:Fp2::conditional_select(&p_y, &Fp2::one(), z.is_zero()),
-            z
+            x: p_x,
+            y: Fp2::conditional_select(&p_y, &Fp2::one(), z.is_zero()),
+            z,
         };
         CtOption::new(p, p.is_on_curve())
     }

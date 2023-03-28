@@ -6,12 +6,11 @@ use core::fmt;
 use core::ops::{Add, Mul, Neg, Sub};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
-use rand_core::RngCore;
 use crate::{
-    impl_add_binop_specify_output, impl_binops_additive,
-    impl_binops_additive_specify_output, impl_binops_multiplicative,
-    impl_binops_multiplicative_mixed, impl_sub_binop_specify_output,
+    impl_add_binop_specify_output, impl_binops_additive, impl_binops_additive_specify_output,
+    impl_binops_multiplicative, impl_binops_multiplicative_mixed, impl_sub_binop_specify_output,
 };
+use rand_core::RngCore;
 
 /// This represents an element $c_0 + c_1 w$ of $\mathbb{F}_{p^12} = \mathbb{F}_{p^6} / w^2 - v$.
 pub struct Fp12 {
@@ -647,4 +646,3 @@ fn test_arithmetic() {
             .frobenius_map()
     );
 }
-

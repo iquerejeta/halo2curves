@@ -3,17 +3,16 @@
 
 use core::fmt;
 use core::ops::{Add, Mul, Neg, Sub};
-use std::convert::TryFrom;
-use std::ops::{Deref};
 use ff::{Field, PrimeField, WithSmallOrderMulGroup};
 use rand_core::RngCore;
+use std::convert::TryFrom;
+use std::ops::Deref;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::util::{adc, mac, sbb};
 use crate::{
-    impl_add_binop_specify_output, impl_binops_additive,
-    impl_binops_additive_specify_output, impl_binops_multiplicative,
-    impl_binops_multiplicative_mixed, impl_sub_binop_specify_output,
+    impl_add_binop_specify_output, impl_binops_additive, impl_binops_additive_specify_output,
+    impl_binops_multiplicative, impl_binops_multiplicative_mixed, impl_sub_binop_specify_output,
 };
 
 // The internal representation of this type is six 64-bit unsigned
@@ -77,9 +76,7 @@ impl WithSmallOrderMulGroup<3> for Fp {
     const ZETA: Self = ZETA;
 }
 
-use crate::{
-    impl_sum_prod,
-};
+use crate::impl_sum_prod;
 impl_sum_prod!(Fp);
 
 /// 2^-1
@@ -118,9 +115,9 @@ const ZETA: Fp = Fp::from_raw_unchecked([
 ]);
 
 impl From<u64> for Fp {
-fn from(val: u64) -> Fp {
-    Fp([val, 0, 0, 0, 0, 0])
-}
+    fn from(val: u64) -> Fp {
+        Fp([val, 0, 0, 0, 0, 0])
+    }
 }
 
 impl Field for Fp {

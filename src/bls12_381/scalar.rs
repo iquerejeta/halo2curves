@@ -12,7 +12,7 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 #[cfg(feature = "bits")]
 use ff::{FieldBits, PrimeFieldBits};
 
-use crate::bls12_381::util::{adc, mac, sbb};
+use crate::util::{adc, mac, sbb};
 use crate::{
     impl_add_binop_specify_output, impl_binops_additive,
     impl_binops_additive_specify_output, impl_binops_multiplicative,

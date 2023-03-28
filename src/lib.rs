@@ -26,6 +26,7 @@ use group;
 
 #[cfg(test)]
 pub mod tests;
+mod util;
 
 #[cfg(all(feature = "prefetch", target_arch = "x86_64"))]
 #[inline(always)]

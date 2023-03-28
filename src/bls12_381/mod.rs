@@ -6,7 +6,6 @@ mod g1;
 mod g2;
 mod scalar;
 mod pairings;
-mod util;
 
 pub use fp::*;
 pub use fp12::*;

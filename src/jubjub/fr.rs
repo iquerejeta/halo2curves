@@ -5,7 +5,7 @@ use core::convert::TryInto;
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub};
 
-use ff::{Field, PrimeField};
+use ff::{Field, PrimeField, WithSmallOrderMulGroup};
 use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
@@ -724,6 +724,31 @@ impl PrimeField for Fr {
     const ROOT_OF_UNITY: Self = ROOT_OF_UNITY;
     const ROOT_OF_UNITY_INV: Self = ROOT_OF_UNITY_INV;
     const DELTA: Self = DELTA;
+}
+
+impl Ord for Fr {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        let left = self.to_repr();
+        let right = other.to_repr();
+        left.iter()
+            .zip(right.iter())
+            .rev()
+            .find_map(|(left_byte, right_byte)| match left_byte.cmp(right_byte) {
+                core::cmp::Ordering::Equal => None,
+                res => Some(res),
+            })
+            .unwrap_or(core::cmp::Ordering::Equal)
+    }
+}
+
+impl PartialOrd for Fr {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl WithSmallOrderMulGroup<3> for Fr {
+    const ZETA: Self = unimplemented!();
 }
 
 #[test]

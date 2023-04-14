@@ -31,13 +31,14 @@ use bitvec::{order::Lsb0, view::AsBits};
 use core::borrow::Borrow;
 use core::fmt;
 use core::iter::Sum;
-use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::ops::{Add, Mul, Neg, Sub};
 use ff::{BatchInverter, Field};
 use group::{
-    cofactor::{CofactorCurve, CofactorCurveAffine, CofactorGroup},
     prime::PrimeGroup,
     Curve, Group, GroupEncoding,
 };
+use group::prime::{PrimeCurve, PrimeCurveAffine};
+use pasta_curves::arithmetic::{Coordinates, CurveAffine, CurveExt};
 use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
@@ -855,6 +856,16 @@ impl ExtendedPoint {
             && affine.is_on_curve_vartime()
             && (affine.u * affine.v * self.z == self.t1 * self.t2)
     }
+
+    /// Return a Subgroup element, if the point is torsion free
+    fn into_subgroup(self) -> CtOption<SubgroupPoint> {
+        CtOption::new(SubgroupPoint(self), self.is_torsion_free())
+    }
+
+    /// Clear cofactor and return Subgroup point
+    fn clear_cofactor(&self) -> SubgroupPoint {
+        SubgroupPoint(self.mul_by_cofactor())
+    }
 }
 
 impl<'a, 'b> Mul<&'b Fr> for &'a ExtendedPoint {
@@ -1015,6 +1026,26 @@ impl<'a, 'b> Sub<&'b AffinePoint> for &'a ExtendedPoint {
 }
 
 impl_binops_additive!(ExtendedPoint, AffinePoint);
+
+impl<'a, 'b> Add<&'b AffinePoint> for &'a AffinePoint {
+    type Output = ExtendedPoint;
+
+    #[inline]
+    fn add(self, other: &'b AffinePoint) -> ExtendedPoint {
+        ExtendedPoint::from(*other) + self
+    }
+}
+
+impl<'a, 'b> Sub<&'b AffinePoint> for &'a AffinePoint {
+    type Output = ExtendedPoint;
+
+    #[inline]
+    fn sub(self, other: &'b AffinePoint) -> ExtendedPoint {
+        - ExtendedPoint::from(*other) + self
+    }
+}
+
+impl_binops_additive_specify_output!(AffinePoint, AffinePoint, ExtendedPoint);
 
 /// This is a "completed" point produced during a point doubling or
 /// addition routine. These points exist in the `(U:Z, V:T)` model
@@ -1302,62 +1333,10 @@ impl Group for SubgroupPoint {
     }
 }
 
-#[cfg(feature = "alloc")]
-impl WnafGroup for ExtendedPoint {
-    fn recommended_wnaf_for_num_scalars(num_scalars: usize) -> usize {
-        // Copied from bls12_381::g1, should be updated.
-        const RECOMMENDATIONS: [usize; 12] =
-            [1, 3, 7, 20, 43, 120, 273, 563, 1630, 3128, 7933, 62569];
-
-        let mut ret = 4;
-        for r in &RECOMMENDATIONS {
-            if num_scalars > *r {
-                ret += 1;
-            } else {
-                break;
-            }
-        }
-
-        ret
-    }
-}
-
 impl PrimeGroup for SubgroupPoint {}
 
-impl CofactorGroup for ExtendedPoint {
-    type Subgroup = SubgroupPoint;
-
-    fn clear_cofactor(&self) -> Self::Subgroup {
-        SubgroupPoint(self.mul_by_cofactor())
-    }
-
-    fn into_subgroup(self) -> CtOption<Self::Subgroup> {
-        CtOption::new(SubgroupPoint(self), self.is_torsion_free())
-    }
-
-    fn is_torsion_free(&self) -> Choice {
-        self.is_torsion_free()
-    }
-}
-
-impl Curve for ExtendedPoint {
-    type AffineRepr = AffinePoint;
-
-    fn batch_normalize(p: &[Self], q: &mut [Self::AffineRepr]) {
-        Self::batch_normalize(p, q);
-    }
-
-    fn to_affine(&self) -> Self::AffineRepr {
-        self.into()
-    }
-}
-
-impl CofactorCurve for ExtendedPoint {
-    type Affine = AffinePoint;
-}
-
-impl CofactorCurveAffine for AffinePoint {
-    type Scalar = Fr;
+impl PrimeCurveAffine for AffinePoint {
+    type Scalar = Scalar;
     type Curve = ExtendedPoint;
 
     fn identity() -> Self {
@@ -1388,6 +1367,91 @@ impl CofactorCurveAffine for AffinePoint {
 
     fn to_curve(&self) -> Self::Curve {
         (*self).into()
+    }
+}
+
+impl CurveAffine for AffinePoint {
+    type ScalarExt = Scalar;
+    type Base = Fq;
+    type CurveExt = ExtendedPoint;
+
+    fn is_on_curve(&self) -> Choice {
+        // v^2 - u^2 ?= 1 + d * u^2 * v^2
+        (self.v.square() - self.u.square()).ct_eq(&(Fq::one() + EDWARDS_D * self.u.square() * self.v)) | self.is_identity()
+    }
+
+    fn coordinates(&self) -> CtOption<Coordinates<Self>> {
+        Coordinates::from_xy(self.u, self.v)
+    }
+
+    fn from_xy(u: Self::Base, v: Self::Base) -> CtOption<Self> {
+        let p = AffinePoint {
+            u,
+            v,
+            };
+        CtOption::new(p, p.is_on_curve())
+    }
+
+    fn a() -> Self::Base {
+        unimplemented!()
+    }
+
+    fn b() -> Self::Base {
+        unimplemented!()
+    }
+}
+
+impl Curve for ExtendedPoint {
+    type AffineRepr = AffinePoint;
+
+    fn batch_normalize(p: &[Self], q: &mut [Self::AffineRepr]) {
+        Self::batch_normalize(p, q);
+    }
+
+    fn to_affine(&self) -> Self::AffineRepr {
+        self.into()
+    }
+}
+
+impl PrimeGroup for ExtendedPoint {}
+
+impl PrimeCurve for ExtendedPoint {
+    type Affine = AffinePoint;
+}
+
+impl CurveExt for ExtendedPoint {
+    type ScalarExt = Scalar;
+    type Base = Fq;
+    type AffineExt = AffinePoint;
+
+    const CURVE_ID: &'static str = "jubjub";
+
+    fn endo(&self) -> Self {
+        unimplemented!();
+    }
+
+    fn jacobian_coordinates(&self) -> (Fq, Fq, Fq) {
+        unimplemented!();
+    }
+
+    fn hash_to_curve<'a>(_: &'a str) -> Box<dyn Fn(&[u8]) -> Self + 'a> {
+        unimplemented!();
+    }
+
+    fn is_on_curve(&self) -> Choice {
+        unimplemented!();
+    }
+
+    fn b() -> Self::Base {
+        unimplemented!();
+    }
+
+    fn a() -> Self::Base {
+        unimplemented!();
+    }
+
+    fn new_jacobian(_x: Self::Base, _y: Self::Base, _z: Self::Base) -> CtOption<Self> {
+        unimplemented!();
     }
 }
 

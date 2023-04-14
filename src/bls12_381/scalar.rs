@@ -6,7 +6,7 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub};
 use rand_core::RngCore;
 use std::convert::TryFrom;
 
-use ff::{Field, PrimeField, WithSmallOrderMulGroup};
+use ff::{Field, FromUniformBytes, PrimeField, WithSmallOrderMulGroup};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::util::{adc, mac, sbb};
@@ -633,6 +633,14 @@ impl Scalar {
         let mask = (((self.0[0] | self.0[1] | self.0[2] | self.0[3]) == 0) as u64).wrapping_sub(1);
 
         Scalar([d0 & mask, d1 & mask, d2 & mask, d3 & mask])
+    }
+}
+
+impl FromUniformBytes<64> for Scalar {
+    /// Converts a 512-bit little endian integer into
+    /// a `Scalar` by reducing by the modulus.
+    fn from_uniform_bytes(bytes: &[u8; 64]) -> Self {
+        Self::from_bytes_wide(bytes)
     }
 }
 

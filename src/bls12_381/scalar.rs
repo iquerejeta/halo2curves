@@ -9,6 +9,8 @@ use std::convert::TryFrom;
 use ff::{Field, FieldBits, FromUniformBytes, PrimeField, PrimeFieldBits, WithSmallOrderMulGroup};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
+use std::convert::TryInto;
+
 use crate::util::{adc, mac, sbb};
 use crate::{
     impl_add_binop_specify_output, impl_binops_additive, impl_binops_additive_specify_output,

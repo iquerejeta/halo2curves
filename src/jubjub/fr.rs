@@ -5,7 +5,7 @@ use core::convert::TryInto;
 use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub};
 
-use ff::{Field, PrimeField, WithSmallOrderMulGroup};
+use ff::{Field, FieldBits, PrimeField, PrimeFieldBits, WithSmallOrderMulGroup};
 use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
@@ -749,6 +749,27 @@ impl PartialOrd for Fr {
 
 impl WithSmallOrderMulGroup<3> for Fr {
     const ZETA: Self = unimplemented!();
+}
+
+impl PrimeFieldBits for Fr {
+    type ReprBits = [u64; 4];
+
+    fn to_le_bits(&self) -> FieldBits<Self::ReprBits> {
+        let bytes = self.to_repr();
+
+        let limbs = [
+            u64::from_le_bytes(bytes[0..8].try_into().unwrap()),
+            u64::from_le_bytes(bytes[8..16].try_into().unwrap()),
+            u64::from_le_bytes(bytes[16..24].try_into().unwrap()),
+            u64::from_le_bytes(bytes[24..32].try_into().unwrap()),
+        ];
+
+        FieldBits::new(limbs)
+    }
+
+    fn char_le_bits() -> FieldBits<Self::ReprBits> {
+        FieldBits::new(MODULUS.0)
+    }
 }
 
 #[test]

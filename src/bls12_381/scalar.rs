@@ -6,7 +6,7 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub};
 use rand_core::RngCore;
 use std::convert::TryFrom;
 
-use ff::{Field, FromUniformBytes, PrimeField, WithSmallOrderMulGroup};
+use ff::{Field, FieldBits, FromUniformBytes, PrimeField, PrimeFieldBits, WithSmallOrderMulGroup};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::util::{adc, mac, sbb};
@@ -761,6 +761,27 @@ where
         I: Iterator<Item = T>,
     {
         iter.fold(Self::one(), |acc, item| acc * item.borrow())
+    }
+}
+
+impl PrimeFieldBits for Scalar {
+    type ReprBits = [u64; 4];
+
+    fn to_le_bits(&self) -> FieldBits<Self::ReprBits> {
+        let bytes = self.to_repr();
+
+            let limbs = [
+            u64::from_le_bytes(bytes[0..8].try_into().unwrap()),
+            u64::from_le_bytes(bytes[8..16].try_into().unwrap()),
+            u64::from_le_bytes(bytes[16..24].try_into().unwrap()),
+            u64::from_le_bytes(bytes[24..32].try_into().unwrap()),
+        ];
+
+        FieldBits::new(limbs)
+    }
+
+    fn char_le_bits() -> FieldBits<Self::ReprBits> {
+        FieldBits::new(MODULUS.0)
     }
 }
 

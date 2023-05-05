@@ -658,12 +658,8 @@ impl<'a> From<&'a Scalar> for [u8; 32] {
     }
 }
 
-const ZETA: Scalar = Scalar::from_raw([
-    0x282844ba982b4b0c,
-    0x8c793d58d6d3d29f,
-    0x3bb688f6ce507945,
-    0x4882b248a94153fe,
-]);
+// GF(0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001).primitive_element() ^ ((0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001 - 1) // 3)
+const ZETA: Scalar = Scalar::from_raw([0x00000000ffffffff, 0xac45a4010001a402, 0x00, 0x00]);
 
 impl WithSmallOrderMulGroup<3> for Scalar {
     const ZETA: Self = ZETA;
@@ -772,7 +768,7 @@ impl PrimeFieldBits for Scalar {
     fn to_le_bits(&self) -> FieldBits<Self::ReprBits> {
         let bytes = self.to_repr();
 
-            let limbs = [
+        let limbs = [
             u64::from_le_bytes(bytes[0..8].try_into().unwrap()),
             u64::from_le_bytes(bytes[8..16].try_into().unwrap()),
             u64::from_le_bytes(bytes[16..24].try_into().unwrap()),

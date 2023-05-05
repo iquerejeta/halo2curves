@@ -5,7 +5,8 @@ use core::fmt;
 use core::ops::{Add, Mul, Neg, Sub};
 use ff::{Field, PrimeField, WithSmallOrderMulGroup};
 use rand_core::RngCore;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
+use std::io::Write;
 use std::ops::Deref;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
@@ -184,7 +185,7 @@ impl fmt::Debug for Fp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let tmp = self.to_bytes();
         write!(f, "0x")?;
-        for &b in tmp.iter() {
+        for &b in tmp.iter().rev() {
             write!(f, "{:02x}", b)?;
         }
         Ok(())
@@ -324,6 +325,10 @@ impl_binops_additive!(Fp, Fp);
 impl_binops_multiplicative!(Fp, Fp);
 
 impl Fp {
+    pub const fn size() -> usize {
+        48
+    }
+
     /// Returns zero, the additive identity.
     #[inline]
     pub const fn zero() -> Fp {
@@ -345,12 +350,12 @@ impl Fp {
     pub fn from_bytes(bytes: &[u8; 48]) -> CtOption<Fp> {
         let mut tmp = Fp([0, 0, 0, 0, 0, 0]);
 
-        tmp.0[5] = u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[0..8]).unwrap());
-        tmp.0[4] = u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[8..16]).unwrap());
-        tmp.0[3] = u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[16..24]).unwrap());
-        tmp.0[2] = u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[24..32]).unwrap());
-        tmp.0[1] = u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[32..40]).unwrap());
-        tmp.0[0] = u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[40..48]).unwrap());
+        tmp.0[0] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[0..8]).unwrap());
+        tmp.0[1] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[8..16]).unwrap());
+        tmp.0[2] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[16..24]).unwrap());
+        tmp.0[3] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[24..32]).unwrap());
+        tmp.0[4] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[32..40]).unwrap());
+        tmp.0[5] = u64::from_le_bytes(<[u8; 8]>::try_from(&bytes[40..48]).unwrap());
 
         // Try to subtract the modulus
         let (_, borrow) = sbb(tmp.0[0], MODULUS[0], 0);
@@ -382,12 +387,12 @@ impl Fp {
         );
 
         let mut res = [0; 48];
-        res[0..8].copy_from_slice(&tmp.0[5].to_be_bytes());
-        res[8..16].copy_from_slice(&tmp.0[4].to_be_bytes());
-        res[16..24].copy_from_slice(&tmp.0[3].to_be_bytes());
-        res[24..32].copy_from_slice(&tmp.0[2].to_be_bytes());
-        res[32..40].copy_from_slice(&tmp.0[1].to_be_bytes());
-        res[40..48].copy_from_slice(&tmp.0[0].to_be_bytes());
+        res[0..8].copy_from_slice(&tmp.0[0].to_le_bytes());
+        res[8..16].copy_from_slice(&tmp.0[1].to_le_bytes());
+        res[16..24].copy_from_slice(&tmp.0[2].to_le_bytes());
+        res[24..32].copy_from_slice(&tmp.0[3].to_le_bytes());
+        res[32..40].copy_from_slice(&tmp.0[4].to_le_bytes());
+        res[40..48].copy_from_slice(&tmp.0[5].to_le_bytes());
 
         res
     }
@@ -824,6 +829,74 @@ impl Fp {
 
         Self::montgomery_reduce(t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)
     }
+
+    /// Lexicographic comparison of Montgomery forms.
+    #[inline(always)]
+    const fn is_less_than(x: &[u64; 6], y: &[u64; 6]) -> bool {
+        let (_, borrow) = sbb(x[0], y[0], 0);
+        let (_, borrow) = sbb(x[1], y[1], borrow);
+        let (_, borrow) = sbb(x[2], y[2], borrow);
+        let (_, borrow) = sbb(x[3], y[3], borrow);
+        let (_, borrow) = sbb(x[4], y[4], borrow);
+        let (_, borrow) = sbb(x[5], y[5], borrow);
+        borrow >> 63 == 1
+    }
+}
+
+impl crate::serde::SerdeObject for Fp {
+    fn from_raw_bytes_unchecked(bytes: &[u8]) -> Self {
+        debug_assert_eq!(bytes.len(), 48);
+        let inner =
+            [0, 8, 16, 24, 32, 40].map(|i| u64::from_le_bytes(bytes[i..i + 8].try_into().unwrap()));
+
+        Self { 0: inner }
+    }
+    fn from_raw_bytes(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() != 48 {
+            return None;
+        }
+        let elt = Self::from_raw_bytes_unchecked(bytes);
+        Self::is_less_than(&elt.0, &MODULUS).then(|| elt)
+    }
+    fn to_raw_bytes(&self) -> Vec<u8> {
+        let mut res = Vec::with_capacity(48);
+        for limb in self.0.iter() {
+            res.extend_from_slice(&limb.to_le_bytes());
+        }
+        res
+    }
+    fn read_raw_unchecked<R: std::io::Read>(reader: &mut R) -> Self {
+        let inner = [(); 6].map(|_| {
+            let mut buf = [0; 8];
+            reader.read_exact(&mut buf).unwrap();
+            u64::from_le_bytes(buf)
+        });
+        Self { 0: inner }
+    }
+    fn read_raw<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
+        let mut inner = [0u64; 6];
+        for limb in inner.iter_mut() {
+            let mut buf = [0; 8];
+            reader.read_exact(&mut buf)?;
+            *limb = u64::from_le_bytes(buf);
+        }
+        let elt = Self(inner);
+        Self::is_less_than(&elt.0, &MODULUS)
+            .then(|| elt)
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "input number is not less than field modulus",
+                )
+            })
+    }
+
+    fn write_raw<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        for limb in self.0.iter() {
+            writer.write_all(&limb.to_le_bytes())?;
+        }
+        Ok(())
+    }
 }
 
 #[test]
@@ -845,7 +918,7 @@ fn test_conditional_selection() {
 fn test_equality() {
     fn is_equal(a: &Fp, b: &Fp) -> bool {
         let eq = a == b;
-        let ct_eq = a.ct_eq(&b);
+        let ct_eq = a.ct_eq(b);
 
         assert_eq!(eq, bool::from(ct_eq));
 
@@ -1036,9 +1109,9 @@ fn test_from_bytes() {
     assert_eq!(
         -Fp::one(),
         Fp::from_bytes(&[
-            26, 1, 17, 234, 57, 127, 230, 154, 75, 27, 167, 182, 67, 75, 172, 215, 100, 119, 75,
-            132, 243, 133, 18, 191, 103, 48, 210, 160, 246, 176, 246, 36, 30, 171, 255, 254, 177,
-            83, 255, 255, 185, 254, 255, 255, 255, 255, 170, 170
+            170, 170, 255, 255, 255, 255, 254, 185, 255, 255, 83, 177, 254, 255, 171, 30, 36, 246,
+            176, 246, 160, 210, 48, 103, 191, 18, 133, 243, 132, 75, 119, 100, 215, 172, 75, 67,
+            182, 167, 27, 75, 154, 230, 127, 57, 234, 17, 1, 26
         ])
         .unwrap()
     );

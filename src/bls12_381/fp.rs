@@ -5,7 +5,8 @@ use core::fmt;
 use core::ops::{Add, Mul, Neg, Sub};
 use ff::{Field, PrimeField, WithSmallOrderMulGroup};
 use rand_core::RngCore;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
+use std::io::Write;
 use std::ops::Deref;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
@@ -324,6 +325,10 @@ impl_binops_additive!(Fp, Fp);
 impl_binops_multiplicative!(Fp, Fp);
 
 impl Fp {
+    pub const fn size() -> usize {
+        48
+    }
+
     /// Returns zero, the additive identity.
     #[inline]
     pub const fn zero() -> Fp {
@@ -823,6 +828,74 @@ impl Fp {
         let (t11, _) = adc(t11, 0, carry);
 
         Self::montgomery_reduce(t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)
+    }
+
+    /// Lexicographic comparison of Montgomery forms.
+    #[inline(always)]
+    const fn is_less_than(x: &[u64; 6], y: &[u64; 6]) -> bool {
+        let (_, borrow) = sbb(x[0], y[0], 0);
+        let (_, borrow) = sbb(x[1], y[1], borrow);
+        let (_, borrow) = sbb(x[2], y[2], borrow);
+        let (_, borrow) = sbb(x[3], y[3], borrow);
+        let (_, borrow) = sbb(x[4], y[4], borrow);
+        let (_, borrow) = sbb(x[5], y[5], borrow);
+        borrow >> 63 == 1
+    }
+}
+
+impl crate::serde::SerdeObject for Fp {
+    fn from_raw_bytes_unchecked(bytes: &[u8]) -> Self {
+        debug_assert_eq!(bytes.len(), 48);
+        let inner =
+            [0, 8, 16, 24, 32, 40].map(|i| u64::from_le_bytes(bytes[i..i + 8].try_into().unwrap()));
+
+        Self { 0: inner }
+    }
+    fn from_raw_bytes(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() != 48 {
+            return None;
+        }
+        let elt = Self::from_raw_bytes_unchecked(bytes);
+        Self::is_less_than(&elt.0, &MODULUS).then(|| elt)
+    }
+    fn to_raw_bytes(&self) -> Vec<u8> {
+        let mut res = Vec::with_capacity(48);
+        for limb in self.0.iter() {
+            res.extend_from_slice(&limb.to_le_bytes());
+        }
+        res
+    }
+    fn read_raw_unchecked<R: std::io::Read>(reader: &mut R) -> Self {
+        let inner = [(); 6].map(|_| {
+            let mut buf = [0; 8];
+            reader.read_exact(&mut buf).unwrap();
+            u64::from_le_bytes(buf)
+        });
+        Self{ 0: inner }
+    }
+    fn read_raw<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
+        let mut inner = [0u64; 6];
+        for limb in inner.iter_mut() {
+            let mut buf = [0; 8];
+            reader.read_exact(&mut buf)?;
+            *limb = u64::from_le_bytes(buf);
+        }
+        let elt = Self(inner);
+        Self::is_less_than(&elt.0, &MODULUS)
+            .then(|| elt)
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "input number is not less than field modulus",
+                )
+            })
+    }
+
+    fn write_raw<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        for limb in self.0.iter() {
+            writer.write_all(&limb.to_le_bytes())?;
+        }
+        Ok(())
     }
 }
 

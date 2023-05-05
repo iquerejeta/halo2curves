@@ -9,6 +9,7 @@ use core::borrow::Borrow;
 use core::fmt;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, Neg, Sub};
+use group::cofactor::CofactorCurveAffine;
 use group::Group;
 use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};

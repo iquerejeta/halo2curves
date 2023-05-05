@@ -291,6 +291,10 @@ impl_binops_additive!(Fp2, Fp2);
 impl_binops_multiplicative!(Fp2, Fp2);
 
 impl Fp2 {
+    pub const fn size() -> usize {
+        96
+    }
+
     #[inline]
     pub const fn zero() -> Fp2 {
         Fp2 {
@@ -532,6 +536,66 @@ impl Fp2 {
             }
         }
         res
+    }
+
+    /// Attempts to convert a little-endian byte representation of
+    /// a scalar into a `Fq`, failing if the input is not canonical.
+    pub fn from_bytes(bytes: &[u8; 96]) -> CtOption<Fp2> {
+        let c0 = Fp::from_bytes(bytes[0..48].try_into().unwrap());
+        let c1 = Fp::from_bytes(bytes[48..96].try_into().unwrap());
+        CtOption::new(
+            Fp2 {
+                c0: c0.unwrap(),
+                c1: c1.unwrap(),
+            },
+            c0.is_some() & c1.is_some(),
+        )
+    }
+
+    /// Converts an element of `Fq` into a byte representation in
+    /// little-endian byte order.
+    pub fn to_bytes(&self) -> [u8; 96] {
+        let mut res = [0u8; 96];
+        let c0_bytes = self.c0.to_bytes();
+        let c1_bytes = self.c1.to_bytes();
+        res[0..48].copy_from_slice(&c0_bytes[..]);
+        res[48..96].copy_from_slice(&c1_bytes[..]);
+        res
+    }
+}
+
+impl crate::serde::SerdeObject for Fp2 {
+    fn from_raw_bytes_unchecked(bytes: &[u8]) -> Self {
+        debug_assert_eq!(bytes.len(), 96);
+        let [c0, c1] = [0, 48].map(|i| Fp::from_raw_bytes_unchecked(&bytes[i..i + 48]));
+        Self { c0, c1 }
+    }
+    fn from_raw_bytes(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() != 96 {
+            return None;
+        }
+        let [c0, c1] = [0, 48].map(|i| Fp::from_raw_bytes(&bytes[i..i + 48]));
+        c0.zip(c1).map(|(c0, c1)| Self { c0, c1 })
+    }
+    fn to_raw_bytes(&self) -> Vec<u8> {
+        let mut res = Vec::with_capacity(96);
+        for limb in self.c0.0.iter().chain(self.c1.0.iter()) {
+            res.extend_from_slice(&limb.to_le_bytes());
+        }
+        res
+    }
+    fn read_raw_unchecked<R: std::io::Read>(reader: &mut R) -> Self {
+        let [c0, c1] = [(); 2].map(|_| Fp::read_raw_unchecked(reader));
+        Self { c0, c1 }
+    }
+    fn read_raw<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
+        let c0 = Fp::read_raw(reader)?;
+        let c1 = Fp::read_raw(reader)?;
+        Ok(Self { c0, c1 })
+    }
+    fn write_raw<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        self.c0.write_raw(writer)?;
+        self.c1.write_raw(writer)
     }
 }
 

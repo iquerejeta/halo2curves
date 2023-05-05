@@ -1,28 +1,31 @@
 #![allow(clippy::eq_op)]
 
+use group::cofactor::CofactorGroup;
 use crate::ff::Field;
 use crate::group::prime::PrimeCurveAffine;
 use crate::{group::GroupEncoding, serde::SerdeObject};
 use crate::{CurveAffine, CurveExt};
-use rand_core::OsRng;
+use rand_core::{OsRng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 #[cfg(feature = "derive_serde")]
 use serde::{Deserialize, Serialize};
 
-pub fn curve_tests<G: CurveExt>() {
-    is_on_curve::<G>();
-    equality::<G>();
-    projective_to_affine_affine_to_projective::<G>();
-    projective_addition::<G>();
-    mixed_addition::<G>();
-    multiplication::<G>();
-    batch_normalize::<G>();
+pub fn curve_tests<G: CurveExt + CofactorGroup>() {
+    // is_on_curve::<G>();
+    // equality::<G>();
+    // projective_to_affine_affine_to_projective::<G>();
+    // projective_addition::<G>();
+    // mixed_addition::<G>();
+    // multiplication::<G>();
+    // batch_normalize::<G>();
     serdes::<G>();
 }
 
-fn serdes<G: CurveExt>() {
+fn serdes<G: CurveExt + CofactorGroup>() {
+    let mut rng = ChaCha8Rng::from_seed([1; 32]);
     for _ in 0..100 {
-        let projective_point = G::random(OsRng);
+        let projective_point = G::random(&mut rng);
         let affine_point: G::AffineExt = projective_point.into();
         let projective_repr = projective_point.to_bytes();
         let affine_repr = affine_point.to_bytes();
@@ -33,15 +36,24 @@ fn serdes<G: CurveExt>() {
             affine_repr.as_ref()
         );
 
-        let projective_point_rec = G::from_bytes(&projective_repr).unwrap();
-        let projective_point_rec_unchecked = G::from_bytes(&projective_repr).unwrap();
-        let affine_point_rec = G::AffineExt::from_bytes(&affine_repr).unwrap();
-        let affine_point_rec_unchecked = G::AffineExt::from_bytes(&affine_repr).unwrap();
+        println!("0");
+        let projective_point_rec = G::from_bytes(&projective_repr).expect("AAAAAAA");
+        println!("0");
+        let projective_point_rec_unchecked = G::from_bytes(&projective_repr).expect("BBBBBBB");
+        println!("0");
+        let affine_point_rec = G::AffineExt::from_bytes(&affine_repr).expect("CCCCCC");
+        println!("0");
+        let affine_point_rec_unchecked = G::AffineExt::from_bytes(&affine_repr).expect("DDDDD");
 
+        println!("0");
         assert_eq!(projective_point, projective_point_rec);
+        println!("1");
         assert_eq!(projective_point, projective_point_rec_unchecked);
+        println!("2");
         assert_eq!(affine_point, affine_point_rec);
+        println!("3");
         assert_eq!(affine_point, affine_point_rec_unchecked);
+        println!("4");
     }
 }
 

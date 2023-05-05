@@ -195,26 +195,32 @@ macro_rules! new_curve_impl {
                         let bytes = &bytes.0;
                         let mut tmp = *bytes;
                         let is_inf = Choice::from(tmp[[< $name _COMPRESSED_SIZE >] - 1] >> 7);
-                        let ysign = Choice::from(tmp[[< $name _COMPRESSED_SIZE >] - 1] >> 6);
+                        let ysign = Choice::from((tmp[[< $name _COMPRESSED_SIZE >] - 1] >> 6) & 1);
                         tmp[[< $name _COMPRESSED_SIZE >] - 1] &= 0b0011_1111;
                         let mut xbytes = [0u8; $base::size()];
                         xbytes.copy_from_slice(&tmp[ ..$base::size()]);
-
+                        let x = $base::from_bytes(&xbytes);
+                        println!("x coord: {:?}", x);
                         $base::from_bytes(&xbytes).and_then(|x| {
+                            println!("x is zero: {:?}", x.is_zero());
+                            println!("is infinity: {:?}", is_inf);
                             CtOption::new(Self::identity(), x.is_zero() & (is_inf)).or_else(|| {
+                                println!("Entered");
                                 let x3 = x.square() * x;
                                 (x3 + $name::curve_constant_b()).sqrt().and_then(|y| {
                                     let sign = Choice::from(y.to_bytes()[0] & 1);
 
                                     let y = $base::conditional_select(&y, &-y, ysign ^ sign);
 
-                                    CtOption::new(
+                                    let result = CtOption::new(
                                         $name_affine {
                                             x,
                                             y,
                                         },
                                         Choice::from(1u8),
-                                    )
+                                    );
+                                    println!("It should be one: {:?}", result.is_some().unwrap_u8());
+                                    result
                                 })
                             })
                         })
@@ -233,6 +239,9 @@ macro_rules! new_curve_impl {
                             let (x, y) = (self.x, self.y);
                             let sign = (y.to_bytes()[0] & 1) << 6;
                             let mut xbytes = [0u8; [< $name _COMPRESSED_SIZE >]];
+                            println!("x bytes: {:?}", x);
+                            let xx = $base::from_bytes(&x.to_bytes());
+                            println!("x coord: {:?}", xx);
                             xbytes[..$base::size()].copy_from_slice(&x.to_bytes());
                             xbytes[[< $name _COMPRESSED_SIZE >] - 1] |= sign;
                             [< $name Compressed >](xbytes)

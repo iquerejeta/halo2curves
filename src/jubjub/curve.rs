@@ -1377,7 +1377,7 @@ impl CurveAffine for AffinePoint {
 
     fn is_on_curve(&self) -> Choice {
         // v^2 - u^2 ?= 1 + d * u^2 * v^2
-        (self.v.square() - self.u.square()).ct_eq(&(Fq::one() + EDWARDS_D * self.u.square() * self.v)) | self.is_identity()
+        (self.v.square() - self.u.square()).ct_eq(&(Fq::one() + EDWARDS_D * self.u.square() * self.v.square())) | self.is_identity()
     }
 
     fn coordinates(&self) -> CtOption<Coordinates<Self>> {
